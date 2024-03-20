@@ -1,0 +1,58 @@
+pragma solidity ^0.8.0;
+
+// Interface for the Universal Channel contract on Base
+interface UniversalChannel {
+    function sendPacket(bytes calldata data) external;
+}
+
+// Interface for the SIM Client contract
+interface SIMClient {
+    function send(address to, bytes calldata data) external;
+}
+
+contract CrossChainQueryOptimism {
+    address public simClientAddress;
+    address public universalChannelAddress;
+    address public baseContractAddress;
+
+    uint256 public counter;
+    string public secretMessage;
+
+    constructor(
+        address _simClientAddress,
+        address _universalChannelAddress,
+        address _baseContractAddress
+    ) {
+        simClientAddress = _simClientAddress;
+        universalChannelAddress = _universalChannelAddress;
+        baseContractAddress = _baseContractAddress;
+    }
+
+    // Function to initiate the cross-chain query
+    function initiateCrossChainQuery() external {
+        // Prepare the packet data
+        bytes memory packetData = abi.encode("crossChainQuery");
+
+        // Send the packet through the Universal Channel using the SIM Client
+        SIMClient simClient = SIMClient(simClientAddress);
+        simClient.send(universalChannelAddress, packetData);
+    }
+
+    // Function to handle the response from the Base contract
+    function handleResponse(bytes memory responseData) external {
+        (string memory message, uint256 _counter) = abi.decode(responseData, (string, uint256));
+
+        // Update contract state with the response
+        secretMessage = message;
+        counter = _counter;
+    }
+
+    // Callback function to receive packets from the Universal Channel
+    function onRecvUniversalPacket(bytes calldata data) external {
+        // Ensure the packet is from the expected source (Base contract)
+        require(msg.sender == baseContractAddress, "Unexpected sender");
+
+        // Call the handleResponse function with the received data
+        handleResponse(data);
+    }
+}
